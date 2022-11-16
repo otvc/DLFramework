@@ -20,8 +20,11 @@ def train_simple_model():
     }
 
     model_dc_framework = dc_framework.init(model, criterion)
-    model_dc_framework.train(train_data=data)
+    model_dc_framework.to('cpu')
+    model_dc_framework.train(train_data = data)
+    model_dc_framework.eval(eval_data = data)
     model_dc_framework.save("tmp.pt")
+    model_dc_framework.load("tmp.pt")
 
 
 if __name__ == "__main__":

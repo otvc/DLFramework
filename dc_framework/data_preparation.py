@@ -2,10 +2,10 @@ import torch
 
 
 class Dataset:
-    def __init__(self, data, dtype=torch.float32):
+    def __init__(self, data, dtype=torch.float32, device = 'cpu'):
         self._data = {
-            "feature": torch.from_numpy(data["feature"]).to(dtype),
-            "target": torch.from_numpy(data["target"]).to(dtype),
+            "feature": torch.from_numpy(data["feature"]).to(dtype).to(device),
+            "target": torch.from_numpy(data["target"]).to(dtype).to(device),
         }
 
         if self._data["target"].dim() == 1:
@@ -22,6 +22,10 @@ class Dataset:
             self, batch_size=batch_size, collate_fn=self.default_collate_fn
         )
         return train_dataloader
+    
+    def to(self, device):
+        self._data['features'].to(device=device)
+        self._data['target'].to(device=device)
 
     def default_collate_fn(self, batch):
         features = []
