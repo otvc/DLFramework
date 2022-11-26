@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, '../')
+sys.path.insert(0, '.')
 
 import numpy as np
 
@@ -23,8 +23,12 @@ def train_simple_model():
     model_dc_framework.to('cpu')
     model_dc_framework.train(train_data = data)
     model_dc_framework.eval(eval_data = data)
-    model_dc_framework.save("tmp.pt")
-    model_dc_framework.load("tmp.pt")
+    model_dc_framework.save("tests/tmp.pt")
+    model_dc_framework.load("tests/tmp.pt")
+    
+    model_dc_framework.train(train_data = data)
+    model_dc_framework.eval(eval_data = data)
+    
 
 
 if __name__ == "__main__":
