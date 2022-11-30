@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data.distributed import DistributedSampler
 
 
 class Dataset:
@@ -17,9 +18,10 @@ class Dataset:
     def __len__(self):
         return self._data["feature"].size(0)
 
-    def get_dataloader(self, batch_size):
+    def get_dataloader(self, batch_size, is_distributed = False):
+        sampler = DistributedSampler(self) if is_distributed else None
         train_dataloader = torch.utils.data.DataLoader(
-            self, batch_size=batch_size, collate_fn=self.default_collate_fn
+            self, batch_size=batch_size, collate_fn=self.default_collate_fn, sampler = sampler
         )
         return train_dataloader
     
