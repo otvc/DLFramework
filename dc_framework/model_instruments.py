@@ -146,9 +146,9 @@ class MLP(nn.Module):
                 bias1_rank = self.fc1.bias[rank:rank+1, :].to(device)
                 bias2_rank = self.fc2.bias[rank:rank+1, :].to(device)
 
-            output1_rank = self.func_act_1(weights1_rank * x + bias1_rank)
+            output1_rank = self.func_act_1(nn.functional.linear(x, weights1_rank, bias1_rank))
             weights2_rank = self.fc2.weight[rank:rank+1, :].to(device)
-            output2_rank = self.func_act_2(weights2_rank*output1_rank + bias2_rank)
+            output2_rank = self.func_act_2(nn.functional.linear(output1_rank, weights2_rank, bias2_rank))
 
             if rank == 0:
                 output_list = [torch.zeros_like(output2_rank) for _ in range(self.count_devices)]
