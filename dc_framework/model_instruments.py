@@ -2,6 +2,7 @@ import logging
 import numpy as np
 
 import torch
+from torch import nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 
@@ -121,3 +122,45 @@ class DCFramework:
         state = torch.load(path)
         self.model.load_state_dict(state['model'])
         self.optimizer.load_state_dict(state['optimizer'])
+
+class MLP(nn.Module):
+    def __init__(self, in_features, hiddens, out_features, func_activ, bias = True) -> None:
+        super().__init__()
+        assert isinstance(func_activ, list)
+        self.fc1 = nn.Linear(in_features, hiddens, bias = bias)
+        self.fc2 = nn.Linear(hiddens, out_features, bias = bias)
+        self.func_act_1 = func_activ[0]
+        self.func_act_2 = func_activ[1]
+        self.count_devices = torch.distributed.get_world_size()
+        self.bias = bias
+
+    def forward(self, x): # (bs, in_features)
+        if self.count_devices > 1:
+            rank = torch.distributed.get_rank()
+            device = f'cuda:{rank}'
+            weights1_rank = self.fc1.weight[rank:rank+1, :].to(device)
+
+            bias1_rank = 0
+            bias2_rank = 0
+            if self.bias:
+                bias1_rank = self.fc1.bias[rank:rank+1, :].to(device)
+                bias2_rank = self.fc2.bias[rank:rank+1, :].to(device)
+
+            output1_rank = self.func_act_1(weights1_rank * x + bias1_rank)
+            weights2_rank = self.fc2.weight[rank:rank+1, :].to(device)
+            output2_rank = self.func_act_2(weights2_rank*output1_rank + bias2_rank)
+
+            if rank == 0:
+                output_list = [torch.zeros_like(output2_rank) for _ in range(self.count_devices)]
+                torch.distributed.gather(output2_rank, output_list)
+                output = torch.tensor([], dtype = output2_rank.dtype)
+                for t in output_list:
+                    output = torch.cat((output, t), dim = 0)
+                return output
+            else:
+                torch.distributed.gather(output2_rank)
+        else:
+            output_1 = self.func_act_1(self.fc1(x))
+            output = self.func_act_2(self.fc2(output_1))
+            return output
+
