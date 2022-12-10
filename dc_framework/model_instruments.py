@@ -1,5 +1,7 @@
 import logging
 import numpy as np
+import subprocess
+
 
 import torch
 from torch import nn
@@ -48,16 +50,16 @@ class DCFramework:
     
     def __choose_device(self):
         devices = [torch.cuda.device(i) for i in range(torch.cuda.device_count())]
-        count_devices = len(devices)
-        if count_devices > 1:
+        is_distrubuted = torch.distributed.is_available()
+        count_devices = torch.distributed.get_world_size() if torch.distributed.is_available() else 1
+        if is_distrubuted:
             print('distributed learning')
-            torch.distributed.init_process_group(self.backend, init_method = self.init_method,
-                                                 world_size = count_devices)
-            self.model = DistributedDataParallel(self.model)
             device = f"cuda:{torch.distributed.get_rank()}"
+            self.model.to(device)
+            self.model = DistributedDataParallel(self.model)
             self.is_distributed = True
         else:
-            if count_devices == 1:
+            if torch.cuda.is_available():
                 print('learning on cuda')
                 device = f"cuda:{torch.cuda.current_device()}"
             else:
@@ -163,4 +165,24 @@ class MLP(nn.Module):
             output_1 = self.func_act_1(self.fc1(x))
             output = self.func_act_2(self.fc2(output_1))
             return output
+
+
+
+class AutoParallelMLP:
+    def __init__(self, model: nn.Module, input: torch.Tensor) -> None:
+        self.net = model
+        self.sub_all_params()
+        self.model_step(input)
+        
+    def model_step(self, input):
+        self.net(input)
+        
+    def sub_all_params(self):
+        for name, sub_module in self.net.named_modules():
+            sub_module.register_forward_hook(self.__write_computation_graph)
+
+    def __write_computation_graph(self, module, input, output):
+        print(module)
+
+        
 
